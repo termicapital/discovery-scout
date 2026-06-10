@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.6.0
+version: 0.6.1
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -48,7 +48,8 @@ fi
 
 - **Phase 1 (ministry sandbox scan):** use Perplexity Search API with multi-query (up to 5 in one call) instead of 4–5 separate WebSearches. Add `"country": "SA"` to bias toward KSA results and `"search_domain_filter": ["gov.sa", "vision2030.gov.sa", "wamda.com", "magnitt.com", ...]` to favor high-credibility sources.
 - **Phase 1b (KSA competitive pre-scan):** same multi-query pattern, one Search API call per signal cluster instead of per signal.
-- **Phase 3b (Customer Journey Today):** use **Sonar** (cheapest model) for the **AI chatbot path** and **Google search path** — Sonar returns a cited synthesis of what a user would actually find. This is the highest-value Perplexity use case for this skill because it directly addresses the customer-journey gap that v0.5.2 introduced.
+- **Phase 3b (Customer Journey Today):** use **`sonar-deep-research`** (model name `sonar-deep-research`). This is the **recommended default for v0.6.1+** — Deep Research runs 50-70 internal search queries per call and synthesizes a cited multi-source answer (typically 40-50 citations), vastly better at finding *named customer-vendor pairings*, *specific charity adoptions*, and *operational evidence* than the cheaper `sonar` model. The 2026-06-10 A/B test on the Donor CRM venture confirmed Deep Research found a verified vendor adoption (Darah → Naseej MEDAD platform) that `sonar` missed entirely.
+- **Fallback model:** `sonar` (~$0.006/call, ~10s) is the cheap iteration model — use it for quick "is there anything here?" probes before committing to a full Deep Research call.
 
 **Call patterns:**
 
@@ -67,7 +68,27 @@ curl -s -X POST https://api.perplexity.ai/search \
 ```
 
 ```bash
-# Phase 3b — Sonar (cheapest LLM, ~$0.01-0.05 per query)
+# Phase 3b — sonar-deep-research (RECOMMENDED DEFAULT, ~$0.55-0.65 per query, ~2-3 min)
+# Multi-step research with 50-70 internal searches + cited synthesis.
+# Set max_tokens to 8000 to give the model room for full synthesis after reasoning.
+# Use a temp file for the JSON body to avoid bash quoting issues with long content.
+cat > /tmp/dr_body.json <<'JSON'
+{
+  "model": "sonar-deep-research",
+  "messages": [{"role": "user", "content": "<the Phase 3b customer-journey question, with specific named entities>"}],
+  "max_tokens": 8000
+}
+JSON
+curl -s -X POST https://api.perplexity.ai/chat/completions \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  --max-time 290 \
+  --data-binary @/tmp/dr_body.json
+```
+
+```bash
+# Phase 3b fallback — sonar (cheap + fast, ~$0.006 per query, ~10s)
+# Use when iterating or doing a quick "is there anything here?" probe.
 curl -s -X POST https://api.perplexity.ai/chat/completions \
   -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
   -H "Content-Type: application/json" \
@@ -81,7 +102,7 @@ curl -s -X POST https://api.perplexity.ai/chat/completions \
 
 **When `PERPLEXITY_DISABLED`:** fall back to Claude Code's `WebSearch` and `WebFetch` tools — the skill still works fully. Document the fallback in the eventual `Review Notes` field so the human knows which research path was used.
 
-**Cost estimate per autonomous run** (with Perplexity enabled): ~$0.05–$0.50 depending on Phase 3b query count. At 4 runs/month, ~$1–3/month total.
+**Cost estimate per autonomous run** (with Perplexity v0.6.1 defaults — `sonar-deep-research` for Phase 3b + `sonar` for Phase 1/1b): ~$0.60–$0.80 per run (1 Deep Research call dominates the cost). At 4 runs/month, ~$2.50–3.50/month total. The 2026-06-10 A/B test confirmed Deep Research delivers materially better evidence (50 citations vs 9, named customer-vendor pairings found) — the cost lift is worth it for IC-grade briefs.
 
 **Security:** The API key MUST NEVER be hard-coded in this skill, committed to git, or echoed in run output. Only read from the `PERPLEXITY_API_KEY` env var. The README documents setup; the team distributes the key out-of-band (password manager, encrypted channel).
 
