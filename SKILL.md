@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.5.1
+version: 0.5.2
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -348,6 +348,44 @@ Prefer sources <18 months old. Older sources get an explicit "(N years old)" fla
 
 ---
 
+## Phase 3b — Customer Journey Today (mandatory, applies to both modes)
+
+Before Phase 4 KSA competitive analysis, **put yourself in the target user's shoes** and trace what they actually do today to solve this problem. Listing competitors is not enough — the brief must walk through concrete steps a real user would take.
+
+**Why this exists:** Without this, the agent overstates moats and misses obvious alternatives — especially generalist AI tools (ChatGPT, Claude, Perplexity) that may already produce "good enough" answers for free. Identified during the 2026-05-31 review of three autonomous outputs where the moats were thinner than written because the customer-journey research was missing.
+
+### The five paths (explore at least 3)
+
+For the specific target user defined in Phase 5.3 (`Target Segment`), trace:
+
+1. **Google search path.** What query they would actually type (think like the user, not the founder). What the top results show. What they would likely settle on, and at what price/effort.
+2. **AI chatbot path.** What they would ask ChatGPT / Claude / Perplexity / Gemini if they tried generalist AI first. Generate a representative prompt and reason about what response a frontier model would give. **Is the response "good enough" already?** If yes, the venture has thin AI-commoditization moat — flag it.
+3. **Peer ask path.** What a peer in the same role (another charity director, another landlord, another developer) would tell them — what's the social-proof default in this community.
+4. **Existing-platform path.** What happens when they try the closest existing tool (Donorbox already in Arabic, Salesforce NPSP free tier, Marafiqy at a low pricing tier, etc.). Does it work for them or not, and why?
+5. **Workaround path.** What patchwork tools they cobble together today (Excel + WhatsApp + email + manual processes).
+
+### What to document per path
+
+For each path explored:
+
+| Field | Content |
+|---|---|
+| Query / action | What they search or do |
+| What they find | Top result(s) summarized |
+| What's missing | Why they'd be unsatisfied |
+| What they settle on | What they actually end up using |
+| Cost / friction | Time + money cost of the current solution |
+
+### The "is anything already good enough?" check
+
+After tracing the paths, answer explicitly: **on any path, is the current solution "good enough" that a paying customer wouldn't switch?** If yes, the venture's moat must specifically explain why the new product is meaningfully better — not just "Saudi-localized" or "easier UX" but a concrete reason a user would switch from a free / acceptable status quo. Otherwise, downgrade the venture's verdict by one band (e.g., STRONG ADVANCE → CONDITIONAL ADVANCE).
+
+### Output
+
+Write a structured subsection in the Phase 5 brief titled "What [target user] does today" with ≥3 paths fully traced. Required.
+
+---
+
 ## Phase 4: KSA Competitive + Regulatory Check
 
 **Goal:** for the top 3 analogs from Phase 3, check the KSA / GCC competitive landscape and the regulatory picture.
@@ -453,9 +491,22 @@ The brief structure:
 - **Direction of travel:** tightening / loosening / unclear / active reform — with evidence.
 - **Regulatory implication:** proceed / proceed with expert validation / sandbox-first / partner-required / potential fatal blocker.
 
+## What [target user] does today (Customer Journey)
+
+Output of Phase 3b. Mandatory section — without this, the brief overstates moats.
+
+Trace at least 3 paths the target user would take to solve this problem today. Per path: query/action, what they find, what's missing, what they settle on, cost/friction.
+
+1. **Google search path** — query + top results + what they settle on
+2. **AI chatbot path** — what they ask ChatGPT/Claude/Perplexity + whether the response is "good enough"
+3. **Peer ask path** — what a peer in the same role tells them
+4. **Existing-platform path** — what happens when they try the closest existing tool (Donorbox, Marafiqy, Ehsan, etc.)
+5. **Workaround path** — Excel + WhatsApp + email + manual processes
+
+**The "is anything already good enough?" check** — explicitly answer: on any path, is the current solution good enough that a paying customer wouldn't switch? If yes, the moat section must specifically explain why our product is meaningfully better; otherwise downgrade the final verdict by one band.
+
 ## Competitive Landscape
 
-- **Current substitutes:** manual workflows, spreadsheets, incumbents, "do nothing".
 - **3–5 closest competitors:** name, geography, customer segment, positioning, pricing if visible, funding/traction, apparent strengths.
 - **Adjacent global benchmarks** (the top analogs from Phase 3).
 - **White-space hypothesis:** what is underserved, underpriced, overcomplicated, inaccessible, or poorly localized for KSA.
@@ -717,6 +768,7 @@ Do NOT ask the user. Run the quality gates below; if all pass, write to Notion a
 5. **Scoring rationale.** Every D/F/V/A score AND every Q1–Q16 score has a one-line rationale citing specific desktop evidence. Restating the score is not a rationale (see Phase 5b anti-inflation rule).
 6. **Critical fields populated.** `Core Problem / Pain Point`, `Value Proposition`, `Strategic Fit`, `Market size`, `Competitive moat` all non-empty. `Geography` includes `"KSA"`. `Status` = "Research". `Research Sub-stage` = "Desktop".
 7. **Composite selection score.** Phase 2 composite for the selected signal ≥5. (This is also enforced at Phase 2, but verify here as a final defense.)
+8. **Customer Journey Today.** Phase 3b produced ≥3 fully-traced paths in the brief (Google search, AI chatbot, peer ask, existing-platform, workaround). The "is anything already good enough?" check has been answered explicitly. If a path produced a "good enough" status quo, the moat section addresses why the venture meaningfully beats it — and the verdict has been downgraded by one band if the rebuttal is thin.
 
 **On all gates pass — autonomous write:**
 

@@ -55,6 +55,7 @@ Then `/discovery-scout` is available in any Claude Code session.
 | 0.4.0 | H2 2026 launch-priority rules: sandbox-anchored, proven international analog, launchability scoring |
 | 0.5.0 | Simplification: replace 5-component Launchability with 30-Day MVP Test (3 binary questions); SPRINT vs BACKLOG verdict split |
 | 0.5.1 | Plain-English "What concierge MVP means" section added to Phase 5c (readable-cold rule applied to skill text itself) |
+| 0.5.2 | Phase 3b — Customer Journey Today: mandatory trace of ≥3 paths (Google / AI chatbot / peer / existing-platform / workaround). Adds the "is anything already good enough?" check + automatic verdict downgrade if status quo is "good enough" |
 
 ## Test history
 
