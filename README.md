@@ -40,6 +40,59 @@ Then `/discovery-scout` is available in any Claude Code session.
   - Discovery Pipeline (`collection://5e6f6355-ec64-4950-b1cb-66806ef24401`)
 - **WebSearch + WebFetch** tools (standard in Claude Code)
 
+## Optional: Perplexity Sonar (recommended for the Suhail team)
+
+The skill works fully on the built-in WebSearch + WebFetch. **If you set a `PERPLEXITY_API_KEY` env var**, three phases (1 ministry scan, 1b KSA pre-scan, 3b customer journey) upgrade to Perplexity's Search API + Sonar for richer cited sources, multi-query batching, and better Gulf-region geo-blocking resilience.
+
+**Cost:** ~$1–3 per month at typical Suhail run cadence (3–4 autonomous runs/month).
+
+### Setting the env var
+
+**One-time per teammate:**
+
+**Windows (PowerShell, permanent):**
+```powershell
+setx PERPLEXITY_API_KEY "pplx-your-key-here"
+```
+Close and reopen the terminal for the env var to take effect.
+
+**Mac / Linux (zsh):**
+```bash
+echo 'export PERPLEXITY_API_KEY="pplx-your-key-here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Mac / Linux (bash):**
+```bash
+echo 'export PERPLEXITY_API_KEY="pplx-your-key-here"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verify it's set: `echo $PERPLEXITY_API_KEY` (Mac/Linux) or `$env:PERPLEXITY_API_KEY` (PowerShell).
+
+### Distributing the key across the Suhail team
+
+The key itself must NOT be committed to this repo, posted in chat, or hard-coded. Standard team-secrets pattern: store the key once in a shared secrets vault, each teammate copies it to their local env var.
+
+**Practical options** (pick one):
+- **Bitwarden Teams** ($1/user/month) — open-source password manager, lowest-friction team-secrets tool.
+- **1Password Teams** ($7.99/user/month) — industry standard.
+- **A private Notion page** restricted to authorized teammates (acceptable interim if Suhail already uses Notion + has tight workspace access controls).
+- **Encrypted out-of-band channel** (Signal / encrypted email) for one-time distribution to each teammate.
+
+Whichever you pick, the skill never sees the key directly — it just reads the env var.
+
+### What's used and when
+
+| Phase | Without Perplexity | With Perplexity |
+|---|---|---|
+| Phase 1 (ministry scan) | 4-5 WebSearches per ministry | 1 Search API call with multi-query + domain allowlist |
+| Phase 1b (KSA competitive pre-scan) | 3-4 WebSearches per signal cluster | 1 Search API call per cluster |
+| Phase 3b (customer journey) | 3-5 WebSearches per path | 1 Sonar call per path with cited synthesis |
+| All other phases | unchanged | unchanged |
+
+If `PERPLEXITY_API_KEY` is missing, the skill falls back to WebSearch automatically — it always works, with or without the key.
+
 ## Versions
 
 | Version | Highlights |
@@ -56,6 +109,7 @@ Then `/discovery-scout` is available in any Claude Code session.
 | 0.5.0 | Simplification: replace 5-component Launchability with 30-Day MVP Test (3 binary questions); SPRINT vs BACKLOG verdict split |
 | 0.5.1 | Plain-English "What concierge MVP means" section added to Phase 5c (readable-cold rule applied to skill text itself) |
 | 0.5.2 | Phase 3b — Customer Journey Today: mandatory trace of ≥3 paths (Google / AI chatbot / peer / existing-platform / workaround). Adds the "is anything already good enough?" check + automatic verdict downgrade if status quo is "good enough" |
+| 0.6.0 | Optional Perplexity Sonar integration. If `PERPLEXITY_API_KEY` env var is set, Phases 1, 1b, and 3b upgrade to Perplexity Search API + Sonar (~$1-3/month). Skill falls back to WebSearch when env var absent. |
 
 ## Test history
 

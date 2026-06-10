@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.5.2
+version: 0.6.0
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -29,6 +29,61 @@ This skill executes the "government sandbox → analog startup → KSA adaptatio
 ## Iron Law
 
 **Every factual claim must cite a source URL + access date.** No claim survives without a source line. If you cannot find a source, mark the claim as `[UNVERIFIED]` and surface it as an open question — do not fabricate.
+
+## Optional: Perplexity Sonar Integration
+
+This skill works fully on Claude Code's built-in `WebSearch` and `WebFetch` tools. **If a `PERPLEXITY_API_KEY` env var is set**, three phases (1, 1b, 3b) upgrade to Perplexity's Search API + Sonar models for richer cited sources, multi-query batching, and better Gulf-region geo-blocking resilience.
+
+**Check for the env var at the start of every run:**
+
+```bash
+if [ -n "$PERPLEXITY_API_KEY" ]; then
+  echo "PERPLEXITY_ENABLED"
+else
+  echo "PERPLEXITY_DISABLED — using WebSearch fallback"
+fi
+```
+
+**When `PERPLEXITY_ENABLED`:**
+
+- **Phase 1 (ministry sandbox scan):** use Perplexity Search API with multi-query (up to 5 in one call) instead of 4–5 separate WebSearches. Add `"country": "SA"` to bias toward KSA results and `"search_domain_filter": ["gov.sa", "vision2030.gov.sa", "wamda.com", "magnitt.com", ...]` to favor high-credibility sources.
+- **Phase 1b (KSA competitive pre-scan):** same multi-query pattern, one Search API call per signal cluster instead of per signal.
+- **Phase 3b (Customer Journey Today):** use **Sonar** (cheapest model) for the **AI chatbot path** and **Google search path** — Sonar returns a cited synthesis of what a user would actually find. This is the highest-value Perplexity use case for this skill because it directly addresses the customer-journey gap that v0.5.2 introduced.
+
+**Call patterns:**
+
+```bash
+# Phase 1 / 1b — Search API (raw search, $5 per 1k requests)
+curl -s -X POST https://api.perplexity.ai/search \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": ["q1", "q2", "q3"],
+    "max_results": 10,
+    "country": "SA",
+    "search_domain_filter": ["gov.sa", "vision2030.gov.sa", "wamda.com"],
+    "search_context_size": "medium"
+  }'
+```
+
+```bash
+# Phase 3b — Sonar (cheapest LLM, ~$0.01-0.05 per query)
+curl -s -X POST https://api.perplexity.ai/chat/completions \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sonar",
+    "messages": [
+      {"role": "user", "content": "Imagine a Saudi small charity director Googles \"donor management software\" today. Walk me through the top 5 results, what each charges, and what they would settle on. Cite sources."}
+    ]
+  }'
+```
+
+**When `PERPLEXITY_DISABLED`:** fall back to Claude Code's `WebSearch` and `WebFetch` tools — the skill still works fully. Document the fallback in the eventual `Review Notes` field so the human knows which research path was used.
+
+**Cost estimate per autonomous run** (with Perplexity enabled): ~$0.05–$0.50 depending on Phase 3b query count. At 4 runs/month, ~$1–3/month total.
+
+**Security:** The API key MUST NEVER be hard-coded in this skill, committed to git, or echoed in run output. Only read from the `PERPLEXITY_API_KEY` env var. The README documents setup; the team distributes the key out-of-band (password manager, encrypted channel).
 
 ## Modes: Interactive vs. Autonomous
 
