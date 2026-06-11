@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.6.1
+version: 0.6.2
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -459,6 +459,56 @@ After tracing the paths, answer explicitly: **on any path, is the current soluti
 ### Output
 
 Write a structured subsection in the Phase 5 brief titled "What [target user] does today" with ≥3 paths fully traced. Required.
+
+---
+
+## Phase 3c — Social Signal Scan (X / Saudi Arabia)
+
+Optional but recommended when `PERPLEXITY_API_KEY` is set. Surfaces what's actually being discussed about the venture's problem space on X (Twitter) by Saudi accounts — adds voice-of-customer + regulator-voice + competitive-sentiment signals that don't show up in standard desk research.
+
+**Why this exists:** Saudi Arabia has one of the highest per-capita X penetrations in MENA. Government accounts (e.g., @EhsanSA, @HRSD_SA), sector aggregators (e.g., @saudifnpos), individual users, and Saudi influencers all post Arabic + English signal about specific sectors. The 2026-06-11 test on Donor CRM surfaced live evidence of NCNP enforcement actions (18 sanctions in 2024-2025), HRSD's "تبرع" platform migration to national rails, official penalty schedules, and sector-aggregator activity — none of which appeared in standard WebSearch or Sonar/Deep Research results.
+
+### The three queries (all use Perplexity Search API with `search_domain_filter: ["x.com", "twitter.com"]` + `country: "SA"`)
+
+| Query | Goal | Example topic shape |
+|---|---|---|
+| **1. Pain validation** | Real voice-of-customer about the problem. Mix Arabic + English keywords. | `["Saudi <user-role> <problem-word> complaints", "<Arabic problem phrase>", "<sovereign-platform> user feedback"]` |
+| **2. Regulator / government voice** | Official announcements, enforcement signals, partnership news from the relevant ministry/authority. | `["@<ministry-handle> <sector> 2026", "<authority> <sector> regulation announcement", "<Vision 2030 program> tweets"]` |
+| **3. Competitive sentiment** | What's said about named competitors / alternatives. Sentiment + adoption signals + complaints. | `["<competitor> Saudi adoption", "<competitor> customer feedback", "<alternative-platform> review"]` |
+
+Each query returns 10-15 X posts. Synthesize into a `Social Signal Scan (X / Saudi Arabia)` subsection of the Phase 5 brief with:
+- 2-3 most relevant posts per category (URL + post date + 1-line summary)
+- 1-line takeaway per category about what the signal tells us
+- An "Implications for the venture" closing bullet that ties social signal to the existing competitive moat / customer journey analysis
+
+### Bash pattern
+
+```bash
+# One Search API call per query, $0.005 each ($0.015 total per venture)
+curl -s -X POST https://api.perplexity.ai/search \
+  -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": ["<pain validation query 1>", "<pain validation query 2>", "<arabic version>"],
+    "max_results": 15,
+    "country": "SA",
+    "search_domain_filter": ["x.com", "twitter.com"],
+    "search_context_size": "medium"
+  }'
+```
+
+### Limitations (document these in every brief that uses Phase 3c)
+
+- **X auth-wall:** since 2023, X limits third-party indexing. Perplexity's cache covers a meaningful but partial slice — older / cached content well represented, recent (<48h) content weaker.
+- **No engagement metrics:** no likes / retweets / replies counts via Perplexity. Sentiment must be inferred from post text alone, not from amplification.
+- **No real-time:** lag of hours to days between an X post and Perplexity indexing it.
+- **Mostly cached snapshots:** dates on results indicate post date, not necessarily indexing freshness.
+
+**Upgrade path (v0.7.0 candidate):** X API Basic tier ($100/mo, 10K reads/mo) — adds engagement metrics, real-time, `place_country:SA`, `lang:ar` native filtering. Wire in when Phase 3c social signal becomes a load-bearing input to IC decisions, not before.
+
+### Output to Notion
+
+Append a `## Social Signal Scan (X / Saudi Arabia)` section to the Discovery Pipeline row's page body, after the "What [target user] does today" section. Always note the Perplexity-based limitation explicitly so readers don't overweight the signal.
 
 ---
 
