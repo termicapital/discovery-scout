@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.7.0
+version: 0.7.1
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -649,12 +649,23 @@ Build three artifacts:
 
 This matches the Stage 1.1 structure from the Discovery Process doc verbatim, **plus a plain-English opener and a glossary** so the brief is readable cold by a non-domain reader.
 
-**Readable-cold rule (mandatory):**
-1. Open with a **"What this venture is — in plain terms"** section (1-2 paragraphs). Explain the core concept as if to a smart reader with zero domain context. Define every specialized term on first use.
-2. **Expand every acronym on first use** — `GAA (General Authority for Awqaf)`, `NCNP (National Center for Non-Profit Sector)`, `MISA (Ministry of Investment Saudi Arabia)`. After expansion the acronym can stand alone.
-3. **Introduce every named institution with a one-line role description** — "Naseej (a Saudi technology contractor)", "SNB Capital (the investment arm of Saudi National Bank)". Don't drop names without context.
-4. **Explain every specialized concept** on first use — what a waqf is, what a regulatory sandbox is, what Vision 2030 is, what Sharia compliance means for software, what Saudization requires.
-5. **End with a Glossary section** listing every defined term in alphabetical order. Optional only when the brief is genuinely short (<300 words).
+**Readable-cold rule (mandatory, v0.7.1+ strengthened):**
+
+The IC reader will most likely have *no specific Saudi-sector context* beyond "venture builder." Every brief — including every revision section added later (v0.6.x, v0.7.x, etc.) — must stand alone without forcing the reader to do external research on referenced entities.
+
+1. **Open with "What this venture is — in plain terms"** (1-2 paragraphs). Explain the core concept as if to a smart reader with zero domain context. Define every specialized term on first use.
+
+2. **MANDATORY "Cast of Characters" table immediately after the opener.** A structured table listing every named entity referenced anywhere in the brief: regulators, ministries, sovereign platforms, vendors, named competitors, Saudi customer-target organizations, X / handles. Columns: `Entity / Type / One-line description / Why it matters to THIS venture`. The reader uses this as a roadmap. **When ANY revision section is added later, the new entities referenced go into this table FIRST, then are used in the section.** No new entity may be referenced in the body of the brief before it exists in the Cast of Characters.
+
+3. **Expand every acronym on first use** — `GAA (General Authority for Awqaf)`, `NCNP (National Center for Non-Profit Sector)`, `MISA (Ministry of Investment Saudi Arabia)`. After expansion the acronym can stand alone *within the same section* — but when a new major subsection introduces it again, **expand again on first mention of the subsection**. This is intentional repetition: each subsection should be readable standalone.
+
+4. **First-mention parenthetical per major subsection (NEW v0.7.1).** "Naseej (Saudi technology vendor; won the GAA Awqaf portal contract April 2025; now also Zoho Authorized Partner)" on its first mention in `Industry & Why Now`, AGAIN on its first mention in `Competitive Landscape`, AGAIN on its first mention in `Phase 3c Social Signal Scan`. Yes, repetitive — but makes each section standalone. Glance-readers don't get lost.
+
+5. **Explain every specialized concept** on first use — what a waqf is, what a regulatory sandbox is, what Vision 2030 is, what Sharia compliance means for software, what Saudization requires.
+
+6. **Research-trace per major finding (NEW v0.7.1).** Don't just state findings — anchor each one to *how it was sourced*. Format: `<claim> — <tool that found it: WebSearch, Perplexity Sonar, Perplexity Deep Research, Perplexity X-filter, Grok x_search, manual cite>; <confidence: confirmed / likely / hypothesis / single-source>; <link or citation if applicable>`. Example: "Naseej-Zoho partnership announced Jun 8, 2026 — Grok x_search (Top mode), confirmed single-source from @Naseej announcement, https://x.com/Naseej/status/2063863599416648100".
+
+7. **End with a Glossary section** listing every defined term in alphabetical order. Required. The Cast of Characters table (#2 above) covers WHO; the Glossary covers WHAT (concepts, acronyms, methodology terms).
 
 The brief structure:
 
@@ -666,6 +677,19 @@ The brief structure:
 ## What this venture is — in plain terms
 
 [1-2 short paragraphs explaining the venture in language a non-domain reader can follow. Define every specialized term as it first appears.]
+
+## Cast of Characters
+
+Every named entity referenced in this brief, with its role and why it matters to this specific venture. Reader uses this as a roadmap. **When a revision section is added later, new entities go here FIRST.**
+
+| Entity | Type | One-line description | Why it matters to THIS venture |
+|---|---|---|---|
+| [Entity 1, e.g., NCNP] | [e.g., Saudi sector regulator] | [e.g., National Center for Non-Profit Sector — Saudi government body that licenses charities and sets sector regulations] | [e.g., target customers are NCNP-licensed; compliance with NCNP rules is mandatory] |
+| [Entity 2] | [e.g., Saudi vendor] | [...] | [...] |
+| [Entity 3] | [e.g., Sovereign platform] | [...] | [...] |
+| ... | ... | ... | ... |
+
+Cover at minimum: every Saudi regulator/authority mentioned, every Saudi sovereign platform, every vendor (Saudi and global) mentioned, every named Saudi customer-target organization, every X handle referenced. Aim for 15-30 rows in a typical brief.
 
 ## Industry & "Why Now"
 
