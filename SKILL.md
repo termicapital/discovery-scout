@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.6.2
+version: 0.7.0
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -462,9 +462,23 @@ Write a structured subsection in the Phase 5 brief titled "What [target user] do
 
 ---
 
-## Phase 3c — Social Signal Scan (X / Saudi Arabia)
+## Phase 3c — Social + Competitive Recency Layer (X / Saudi Arabia)
 
-Optional but recommended when `PERPLEXITY_API_KEY` is set. Surfaces what's actually being discussed about the venture's problem space on X (Twitter) by Saudi accounts — adds voice-of-customer + regulator-voice + competitive-sentiment signals that don't show up in standard desk research.
+**Critical framing — read this first.** Phase 3c does **NOT validate customer pain.** Saudi charity directors, real-estate developer ops leads, and waqf institution administrators rarely complain publicly on X — the sector is professional, NCNP-regulated entities have political cost to public criticism, and real complaints live in private channels (WhatsApp, board meetings). **Problem validation is the job of Stage 1.2 customer interviews, not Phase 3c.**
+
+What Phase 3c DOES deliver:
+- **Regulatory recency** — what ministries / authorities just announced (NCNP enforcement actions, HRSD platform migrations, REGA scope changes, etc.)
+- **Competitive recency** — what named competitors are announcing in real-time (Naseej-Zoho partnership announced Jun 8, 2026; Inaya Medical College adopting MEDAD Jun 10, 2026; Salesforce Saudi careers ramp 2025)
+- **Sector activity tracking** — who's posting from official accounts (@EhsanSA, @HRSD_SA, @ncnp_sa, @Naseej, @Medad_Cloud, @SaudiVision2030)
+- **Historical / cached signal** — older but relevant posts (NCNP sanctions July 2025, official penalty schedules)
+
+This phase runs in two complementary layers — both optional based on env vars:
+
+### Layer 1: Perplexity Search API with x.com domain filter (PERPLEXITY_API_KEY)
+
+**Strengths:** Cheap (~$0.015 for 3 queries). Good cached / historical signal — surfaces NCNP enforcement actions from mid-2025, government-account posts from late 2024, penalty schedules from 2024. Strong on `regulatory + historical` axis.
+
+**Weakness:** X's 2023 auth-wall limits recent indexing. Posts <48 hours old typically missed. Cannot retrieve engagement metrics.
 
 **Why this exists:** Saudi Arabia has one of the highest per-capita X penetrations in MENA. Government accounts (e.g., @EhsanSA, @HRSD_SA), sector aggregators (e.g., @saudifnpos), individual users, and Saudi influencers all post Arabic + English signal about specific sectors. The 2026-06-11 test on Donor CRM surfaced live evidence of NCNP enforcement actions (18 sanctions in 2024-2025), HRSD's "تبرع" platform migration to national rails, official penalty schedules, and sector-aggregator activity — none of which appeared in standard WebSearch or Sonar/Deep Research results.
 
@@ -481,15 +495,15 @@ Each query returns 10-15 X posts. Synthesize into a `Social Signal Scan (X / Sau
 - 1-line takeaway per category about what the signal tells us
 - An "Implications for the venture" closing bullet that ties social signal to the existing competitive moat / customer journey analysis
 
-### Bash pattern
+### Bash pattern (Perplexity-X)
 
 ```bash
-# One Search API call per query, $0.005 each ($0.015 total per venture)
+# Three Search API calls per venture (pain validation, regulator voice, competitive sentiment), $0.005 each
 curl -s -X POST https://api.perplexity.ai/search \
   -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": ["<pain validation query 1>", "<pain validation query 2>", "<arabic version>"],
+    "query": ["<sector keywords + complaint terms>", "<arabic equivalent>", "<sovereign-platform mentions>"],
     "max_results": 15,
     "country": "SA",
     "search_domain_filter": ["x.com", "twitter.com"],
@@ -497,18 +511,71 @@ curl -s -X POST https://api.perplexity.ai/search \
   }'
 ```
 
-### Limitations (document these in every brief that uses Phase 3c)
+### Layer 2: Grok-Top via xAI x_search tool (XAI_API_KEY) — v0.7.0+
 
-- **X auth-wall:** since 2023, X limits third-party indexing. Perplexity's cache covers a meaningful but partial slice — older / cached content well represented, recent (<48h) content weaker.
-- **No engagement metrics:** no likes / retweets / replies counts via Perplexity. Sentiment must be inferred from post text alone, not from amplification.
-- **No real-time:** lag of hours to days between an X post and Perplexity indexing it.
-- **Mostly cached snapshots:** dates on results indicate post date, not necessarily indexing freshness.
+**Strengths:** Native X access (no auth-wall — xAI owns X). Real-time / very recent (posts from yesterday surface). Constructs sophisticated bilingual Boolean queries with `lang:ar` + `since:` filters automatically. Found Naseej-Zoho partnership announcement (Jun 8, 2026) + Inaya Medical College MEDAD adoption (Jun 10, 2026) in 2026-06-11 test — competitive intel **neither Perplexity nor Deep Research found**.
 
-**Upgrade path (v0.7.0 candidate):** X API Basic tier ($100/mo, 10K reads/mo) — adds engagement metrics, real-time, `place_country:SA`, `lang:ar` native filtering. Wire in when Phase 3c social signal becomes a load-bearing input to IC decisions, not before.
+**Weakness:** Costlier (~$1.20 per query with 5-6 internal x_search calls). Default "Latest" mode prioritizes chronology over relevance — must explicitly instruct "Top" mode in the prompt to get relevance ranking. Verbose output requires synthesis.
+
+**Critical prompt instruction (always include):**
+
+> "When using x_keyword_search, ALWAYS set mode to 'Top' (relevance ranking), NEVER 'Latest' (chronological). The most relevant Saudi charity / RE / venture-sector posts are often older posts with high engagement, not the newest posts."
+
+### Bash pattern (Grok-Top)
+
+```bash
+# One Grok x_search call per venture, ~$1.20 each
+cat > /tmp/grok_body.json <<'JSON'
+{
+  "model": "grok-4.3",
+  "stream": false,
+  "input": [
+    {
+      "role": "user",
+      "content": "IMPORTANT: When using x_keyword_search, ALWAYS set mode to \"Top\" (relevance ranking), NEVER \"Latest\".\n\n<the Phase 3c competitive-recency question, with named competitors, regulators, ministry handles, and date floor `since:2024-01-01`>"
+    }
+  ],
+  "tools": [{"type": "x_search"}]
+}
+JSON
+curl -s -X POST https://api.x.ai/v1/responses \
+  -H "Authorization: Bearer $XAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  --max-time 180 \
+  --data-binary @/tmp/grok_body.json
+```
+
+The xAI `/v1/responses` endpoint returns an `output` array with reasoning steps + `custom_tool_call` items + a final `message` item. Parse for `output[].type == "message"` to get the synthesized text. Cost is in `usage.cost_in_usd_ticks` (divide by 1e9 to get USD).
+
+### When to use which layer
+
+| Situation | Run Perplexity-X | Run Grok-Top |
+|---|---|---|
+| Default autonomous run (cost-conscious) | ✓ | ✗ |
+| IC-bound brief (max information) | ✓ | ✓ |
+| Venture has identified incumbent worth monitoring | ✓ | ✓ |
+| Competitive landscape stable, no recent moves | ✓ | ✗ |
+| Recent competitor announcement suspected | optional | ✓ |
+
+If both env vars are set, **run both by default in IC-bound autonomous runs** (set via `--ic-bound` flag in argument). Otherwise, Perplexity-X only.
+
+### Limitations (document in every brief that uses Phase 3c)
+
+- **Perplexity-X cache lag:** posts <48 hours old typically missed. Mostly cached snapshots.
+- **Grok cost:** $1.20 per call dominates Phase 3c cost — only run when justified.
+- **No engagement metrics in either layer:** likes / retweets / replies counts only available via direct X API ($100/mo Basic), not via Perplexity or Grok x_search.
+- **Not problem validation:** the X signal in this sector is regulatory + competitive, NOT customer-complaint. Stage 1.2 interviews remain the problem validator.
+
+**Future upgrade path (v0.8.x candidate):** Phase 3d — LinkedIn voice-of-customer scan. Saudi charity directors, RE developer ops leads, waqf admins are more active on LinkedIn (professional context allows discussing operational challenges) than X. Requires LinkedIn API or scraper subscription. Higher probability of actual problem validation than X.
 
 ### Output to Notion
 
-Append a `## Social Signal Scan (X / Saudi Arabia)` section to the Discovery Pipeline row's page body, after the "What [target user] does today" section. Always note the Perplexity-based limitation explicitly so readers don't overweight the signal.
+Append a `## Social + Competitive Recency Scan (X / Saudi Arabia)` section to the Discovery Pipeline row's page body, after "What [target user] does today". Structure:
+
+1. **Brief framing reminder** — "This section surfaces competitive + regulatory recency from X. It does NOT validate customer pain — that requires Stage 1.2 interviews."
+2. **Perplexity-X findings** (if PERPLEXITY_API_KEY set) — pain proxies + regulator voice + competitive sentiment (3 sub-sections, ~3-5 posts each)
+3. **Grok-Top findings** (if XAI_API_KEY set + IC-bound run) — competitive recency layer with named announcements, partnerships, customer adoptions found in last 30 days
+4. **Implications for the venture** — 1-paragraph synthesis of both layers' implications.
 
 ---
 
