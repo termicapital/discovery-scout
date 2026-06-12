@@ -1,6 +1,6 @@
 ---
 name: discovery-scout
-version: 0.7.2
+version: 0.7.3
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
@@ -124,7 +124,7 @@ curl -s -X POST https://api.perplexity.ai/chat/completions \
 
 **When `PERPLEXITY_DISABLED`:** fall back to Claude Code's `WebSearch` and `WebFetch` tools — the skill still works fully. Document the fallback in the eventual `Review Notes` field so the human knows which research path was used.
 
-**Cost estimate per autonomous run** (with Perplexity v0.6.1 defaults — `sonar-deep-research` for Phase 3b + `sonar` for Phase 1/1b): ~$0.60–$0.80 per run (1 Deep Research call dominates the cost). At 4 runs/month, ~$2.50–3.50/month total. The 2026-06-10 A/B test confirmed Deep Research delivers materially better evidence (50 citations vs 9, named customer-vendor pairings found) — the cost lift is worth it for IC-grade briefs.
+**Cost estimate per autonomous run** (v0.7.3 defaults — `sonar-deep-research` for Phase 3b + `sonar` for Phase 1/1b + Grok-Top always-on in Phase 3c): ~$1.50–$2.50 per run (Deep Research ~$0.60 + Grok ~$0.40–1.20 dominate). At 4 runs/month, ~$6–10/month total. Both upgrades are evidence-backed: the 2026-06-10 A/B test confirmed Deep Research finds named customer-vendor pairings the cheap model misses (50 citations vs 9), and every Grok run to date surfaced decisive competitive intel no other tool found (Naseej-Zoho; Aramco/SABIC donation figures; pre-public fund status).
 
 **Security:** The API key MUST NEVER be hard-coded in this skill, committed to git, or echoed in run output. Only read from the `PERPLEXITY_API_KEY` env var. The README documents setup; the team distributes the key out-of-band (password manager, encrypted channel).
 
@@ -584,15 +584,16 @@ The xAI `/v1/responses` endpoint returns an `output` array with reasoning steps 
 
 ### When to use which layer
 
-| Situation | Run Perplexity-X | Run Grok-Top |
-|---|---|---|
-| Default autonomous run (cost-conscious) | ✓ | ✗ |
-| IC-bound brief (max information) | ✓ | ✓ |
-| Venture has identified incumbent worth monitoring | ✓ | ✓ |
-| Competitive landscape stable, no recent moves | ✓ | ✗ |
-| Recent competitor announcement suspected | optional | ✓ |
+**Both layers ALWAYS run when their env vars are set (v0.7.3+).** No flags, no conditions:
 
-If both env vars are set, **run both by default in IC-bound autonomous runs** (set via `--ic-bound` flag in argument). Otherwise, Perplexity-X only.
+| Env vars present | What runs in Phase 3c |
+|---|---|
+| `PERPLEXITY_API_KEY` + `XAI_API_KEY` | Both layers — Perplexity-X (historical/regulatory) + Grok-Top (recency) |
+| `PERPLEXITY_API_KEY` only | Layer 1 only |
+| `XAI_API_KEY` only | Layer 2 only |
+| Neither | Phase 3c skipped; note "social scan skipped — no API keys" in the brief |
+
+**Why always-on (track record):** in every run where Grok-Top executed, it surfaced material competitive intel that no other tool found — the Naseej-Zoho partnership announcement (Donor CRM run, Jun 2026), the Aramco SAR 45M + SABIC SAR 10M Ehsan donation figures (Energy run — the decisive data point of that brief), and the Energy Sector Fund's pre-public status (zero X presence = timing advantage). At ~$0.40–1.20 per call and 2–4 ventures/month, the cost (~$2–10/month) is trivial against one IC-grade finding. The earlier cost-conscious gating (v0.7.0–v0.7.2 `--ic-bound` flag) proved to be false economy and is removed.
 
 ### Limitations (document in every brief that uses Phase 3c)
 
@@ -609,7 +610,7 @@ Append a `## Social + Competitive Recency Scan (X / Saudi Arabia)` section to th
 
 1. **Brief framing reminder** — "This section surfaces competitive + regulatory recency from X. It does NOT validate customer pain — that requires Stage 1.2 interviews."
 2. **Perplexity-X findings** (if PERPLEXITY_API_KEY set) — pain proxies + regulator voice + competitive sentiment (3 sub-sections, ~3-5 posts each)
-3. **Grok-Top findings** (if XAI_API_KEY set + IC-bound run) — competitive recency layer with named announcements, partnerships, customer adoptions found in last 30 days
+3. **Grok-Top findings** (if XAI_API_KEY set — always runs, v0.7.3+) — competitive recency layer with named announcements, partnerships, customer adoptions found in last 30 days
 4. **Implications for the venture** — 1-paragraph synthesis of both layers' implications.
 
 ---
