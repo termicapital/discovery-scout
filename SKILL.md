@@ -1,14 +1,17 @@
 ---
 name: discovery-scout
-version: 0.7.1
+version: 0.7.2
 description: |
   Automates Stage 0 (Idea Sourcing from government sandboxes) + Stage 1.1 (Desktop
   Research) of Suhail's Discovery Process. Scans Vision 2030 / ministry sandboxes
   for problem signals, finds analog non-Gulf startups, runs a KSA competitive +
-  regulatory check, drafts a Desktop Research brief, and populates one Problem
-  Signal Capture row + one Discovery Pipeline row in Notion. Draft-only by default;
-  writes to Notion only on explicit user approval. Use when starting a new
-  Discovery Pipeline idea from a government sandbox call or Vision 2030 program.
+  regulatory check + customer-journey + social/competitive recency scan, drafts a
+  readable-cold Desktop Research brief, scores D/F/V/A + Q1-Q16 as Stage 1.1
+  estimates, and populates one Problem Signal Capture row + one Discovery Pipeline
+  row in Notion. Two modes: interactive (human gates at selection, draft review,
+  and Notion write) and --autonomous (end-to-end, quality-gated auto-write with
+  Killed-row fallback). Use when starting a new Discovery Pipeline idea from a
+  government sandbox call or Vision 2030 program.
 allowed-tools:
   - WebFetch
   - WebSearch
@@ -16,6 +19,10 @@ allowed-tools:
   - Read
   - Write
   - Bash
+  - mcp__notion__notion-search
+  - mcp__notion__notion-fetch
+  - mcp__notion__notion-create-pages
+  - mcp__notion__notion-update-page
 ---
 
 # /discovery-scout: Stage 0 + Stage 1.1 of the Suhail Discovery Process
@@ -24,7 +31,7 @@ allowed-tools:
 
 Produce **one fully-populated Discovery Pipeline row** (with its linked Problem Signal Capture row and a Stage 1.1 Desktop Research brief) from a single ministry input. Output of one successful run is one row in `Status = Research`, `Research Sub-stage = Desktop`, ready for a human to begin Stage 1.2 User Research.
 
-This skill executes the "government sandbox → analog startup → KSA adaptation" play described in the Discovery Process doc. It does **not** score ideas (Q1–Q16), run user interviews, or make IC decisions — those are downstream human judgments.
+This skill executes the "government sandbox → analog startup → KSA adaptation" play described in the Discovery Process doc. It scores D/F/V/A evidence levels and the Q1–Q16 IC scorecard as **desktop-only preliminary estimates** (every score tagged `[STAGE-1.1 ESTIMATE]` with a cited rationale — see Phase 5b). It does **not** run user interviews or make IC decisions — the IC re-scores with Stage 1.2 evidence; the skill's scores are a starting point for that judgment, never a substitute.
 
 ## Iron Law
 
@@ -70,9 +77,16 @@ curl -s -X POST https://api.perplexity.ai/search \
 ```bash
 # Phase 3b — sonar-deep-research (RECOMMENDED DEFAULT, ~$0.55-0.65 per query, ~2-3 min)
 # Multi-step research with 50-70 internal searches + cited synthesis.
-# Set max_tokens to 8000 to give the model room for full synthesis after reasoning.
-# Use a temp file for the JSON body to avoid bash quoting issues with long content.
-cat > /tmp/dr_body.json <<'JSON'
+# Set max_tokens to 8000 to give the model room for full synthesis after reasoning
+# (with the default 3000 the model can exhaust tokens on reasoning and return EMPTY content).
+# WINDOWS-SAFE RULES (learned the hard way — both cost real money when violated):
+#   1. Write body + response files to the WORKING DIRECTORY, never /tmp — /tmp does not
+#      persist between Bash tool calls on Windows (a $0.55 Deep Research response was lost this way).
+#   2. Body via file (--data-binary @file), never inline -d with long quoted content — bash
+#      quoting corrupts the JSON and the API returns "error parsing the body".
+#   3. Parse responses in python with encoding='utf-8' explicitly — Windows defaults to cp1252
+#      and crashes on Arabic text / smart quotes in responses.
+cat > dr_body.json <<'JSON'
 {
   "model": "sonar-deep-research",
   "messages": [{"role": "user", "content": "<the Phase 3b customer-journey question, with specific named entities>"}],
@@ -83,7 +97,15 @@ curl -s -X POST https://api.perplexity.ai/chat/completions \
   -H "Authorization: Bearer $PERPLEXITY_API_KEY" \
   -H "Content-Type: application/json" \
   --max-time 290 \
-  --data-binary @/tmp/dr_body.json
+  --data-binary @dr_body.json > dr_response.json
+python3 -c "
+import json
+d = json.load(open('dr_response.json', encoding='utf-8'))
+print(d['choices'][0]['message']['content'])
+"
+# Deep Research responses wrap reasoning in a <think>...</think> block before the synthesis —
+# strip it (regex on '</think>') before using the answer.
+# Clean up body/response JSON files after the run (or add them to .gitignore) — never commit them.
 ```
 
 ```bash
@@ -120,13 +142,15 @@ In autonomous mode, the skill also runs **Phase 0 (Learn from past runs)** befor
 
 ## Inputs
 
-Ask the user at start (use `AskUserQuestion`):
+Three run parameters:
 
-1. **Ministry / sector focus** — default `Transport (MoT / TGA)`. Other priorities: Health (MoH innovation), NGOs / non-profits, Hajj / religious tourism, plus expansion targets (SAMA, CST, NTDP, MISA, MoH).
+1. **Ministry / sector focus** — default per [[project-suhail-edge-sectors]]: prefer NGOs (HRSD / NCNP / GAA) or Real Estate (MoMRAH / REGA); secondary: FinTech (SAMA), HealthTech (MoH), Transport (MoT / TGA), Telecom (CST / NTDP).
 2. **Recency window** — default `last 18 months`. Older claims must be flagged.
 3. **Number of candidate signals to surface in Phase 1** — default `5–10`.
 
-If invoked without arguments, ask all three. If invoked with arguments (e.g. `/discovery-scout transport`), accept defaults for the unspecified ones.
+**Interactive mode:** if invoked without arguments, ask all three via `AskUserQuestion`. If invoked with arguments (e.g. `/discovery-scout transport`), accept defaults for the unspecified ones.
+
+**Autonomous mode:** NEVER ask. Take the ministry from the argument (`--autonomous real-estate`). If no ministry argument is given, pick autonomously: query the Discovery Pipeline (Phase 0) for the least-recently-run sector among the Suhail-edge sectors that is below the saturation cap, and log the choice + reasoning in the run output. Use defaults for recency window and signal count.
 
 ## Signal Classification (READ THIS BEFORE PHASE 1)
 
@@ -405,7 +429,7 @@ When using a functional analog, flag the comparability stretch explicitly in the
 
 ### Sources
 
-- **Crunchbase, Dealroom, Tracxn** — search via WebFetch on their public pages (free tier). For paid tiers, the user has no API key as of 2026-05-29 — rely on public pages.
+- **Crunchbase, Dealroom, Tracxn** — search via WebFetch on their public pages (free tier; no paid startup-DB API key as of v0.7.2). When `PERPLEXITY_API_KEY` is set, prefer Perplexity Deep Research for analog traction data — it synthesizes funding/revenue figures across many sources with citations (see the Perplexity Sonar Integration section).
 - **Regional press:** TechCrunch (global), Sifted (Europe), Rest of World (emerging markets), LatamList, Contxto (LatAm), Wamda + MAGNiTT (MENA/GCC — used in Phase 4, not here).
 - **Founder blogs and Substacks** for primary-source traction claims.
 
@@ -525,7 +549,9 @@ curl -s -X POST https://api.perplexity.ai/search \
 
 ```bash
 # One Grok x_search call per venture, ~$1.20 each
-cat > /tmp/grok_body.json <<'JSON'
+# Same Windows-safe rules as the Deep Research pattern: body + response in the
+# WORKING DIRECTORY (not /tmp), --data-binary @file (not inline -d), UTF-8 parsing.
+cat > grok_body.json <<'JSON'
 {
   "model": "grok-4.3",
   "stream": false,
@@ -542,10 +568,19 @@ curl -s -X POST https://api.x.ai/v1/responses \
   -H "Authorization: Bearer $XAI_API_KEY" \
   -H "Content-Type: application/json" \
   --max-time 180 \
-  --data-binary @/tmp/grok_body.json
+  --data-binary @grok_body.json > grok_response.json
+python3 -c "
+import json
+d = json.load(open('grok_response.json', encoding='utf-8'))
+for item in d['output']:
+    if item.get('type') == 'message':
+        for c in item.get('content', []):
+            print(c.get('text', ''))
+"
+# Clean up body/response JSON files after the run — never commit them.
 ```
 
-The xAI `/v1/responses` endpoint returns an `output` array with reasoning steps + `custom_tool_call` items + a final `message` item. Parse for `output[].type == "message"` to get the synthesized text. Cost is in `usage.cost_in_usd_ticks` (divide by 1e9 to get USD).
+The xAI `/v1/responses` endpoint returns an `output` array with reasoning steps + `custom_tool_call` items + a final `message` item. Parse for `output[].type == "message"` to get the synthesized text. Cost is in `usage.cost_in_usd_ticks` (divide by 1e9 to get USD). Note the legacy `search_parameters` / Live Search API on `/v1/chat/completions` is **deprecated** — only the `tools: [{"type": "x_search"}]` pattern on `/v1/responses` works.
 
 ### When to use which layer
 
@@ -824,7 +859,8 @@ Fields to populate at this stage. **Q1–Q16 scores MUST be left blank** — the
 | `Competitive moat` | text — what could make this defensible (network effects, proprietary data, regulatory access, distribution, switching costs, Suhail assets) |
 | `Status` | select — `Research` |
 | `Research Sub-stage` | select — `Desktop` |
-| `Q1 Score` through `Q16 Score` | **LEAVE BLANK** — IC judgment, not agent output |
+| `Q1 Score` through `Q16 Score` | number — filled by Phase 5b as `[STAGE-1.1 ESTIMATE]` with one-line rationale per score (anti-inflation rule applies). The IC re-scores with Stage 1.2 evidence. |
+| `Desirability/Feasibility/Viability/Adaptability Evidence` | number — filled by Phase 5b evidence-ladder scoring (typically 1–3 at desktop stage) |
 | `Deal Lead` | leave blank for the user to assign |
 
 ### Sector-mapping cheat sheet
@@ -1088,7 +1124,7 @@ The ranking forces every new autonomous output to compete against existing activ
 3. **Recency filter:** prefer sources <18 months old. Flag older sources with their age.
 4. **Strong-Signal Solution Trap guard** at Phases 1 and 3 — separate the problem from the regulator's proposed solution.
 5. **Hajj functional-analog exception** at Phase 3 — flag the comparability stretch when applied.
-6. **Q1–Q16 are forbidden** at Stage 1.1. The skill must not score ideas.
+6. **Every D/F/V/A and Q1–Q16 score is a `[STAGE-1.1 ESTIMATE]`** with a one-line rationale citing specific desktop evidence (Phase 5b anti-inflation rule). A score whose rationale merely restates the score is a violation. The IC re-scores with Stage 1.2 evidence — the skill's scores inform that judgment, never replace it.
 
 If any of these are violated during the run, surface the violation in the Phase 6 draft so the user can correct it before the Notion write.
 
@@ -1099,17 +1135,27 @@ If any of these are violated during the run, surface the violation in the Phase 
 After Phase 6 completes, output this structured report:
 
 ```
-DISCOVERY-SCOUT REPORT
+DISCOVERY-SCOUT REPORT (v0.7.2)
 ═══════════════════════════════════════════════
 Ministry:               <Transport | Health | …>
 Selected signal:        <one-line problem statement>
-Analogs surfaced:       <count> in <geographies>
-KSA competitive tag:    <saturated | partial | open>
+Composite score:        <N> (breakdown logged in Review Notes)
+Analogs surfaced:       <count> in <geographies>; proven analog: <name or NONE>
+KSA competitive tag:    <saturated | partial | open>  ·  SUHAIL-EDGE: <STRONG | WEAK>
 KSA regulatory tag:     <enabling | constraining | fatal blocker>
 Vision 2030 pillar:     <Vibrant Society | Thriving Economy | Ambitious Nation>
 Vision 2030 program:    <NTP | FSDP | NTLS | …>
+Customer journey:       <N> paths traced; good-enough status quo: <YES → moat rebuttal | NO>
+Social/competitive scan: <Perplexity-X | +Grok-Top | skipped> — <1-line key finding or "no signal">
+Moat verdict:           <REAL (N real answers) | WEAK>
+D/F/V/A:                <D>/<F>/<V>/<A>   [STAGE-1.1 ESTIMATE]
+Q1–Q16 est. Eval Score: <X.XX> → <band>   [STAGE-1.1 ESTIMATE]
+30-Day MVP Test:        <PASS | PASS WITH CONDITION | FAIL> (Q1 <Y/N> · Q2 <Y/N> · Q3 <Y/N>)
+FINAL RECOMMENDATION:   <STRONG ADVANCE — SPRINT | CONDITIONAL ADVANCE — SPRINT | … | SKIP/KILL>
+Cross-venture rank:     #<N> of <total> active (Eval Score)
 Sources cited:          <count> total, <count> < 18 months
 Unverified claims:      <count>
+Research cost:          $<X.XX> (Perplexity $<X.XX> + Grok $<X.XX>)
 Notion writes:          <Problem Signal URL>
                         <Discovery Pipeline URL>
 Status:                 DONE | DONE_WITH_CONCERNS | BLOCKED | CANCELLED
@@ -1125,9 +1171,10 @@ Status:                 DONE | DONE_WITH_CONCERNS | BLOCKED | CANCELLED
 ## What this skill does NOT do
 
 - It does not run user interviews (Stage 1.2 — that's a human-led activity).
-- It does not score Q1–Q16 (IC stage).
+- It does not make IC decisions. Its D/F/V/A + Q1–Q16 scores are Stage 1.1 desktop estimates (Phase 5b) that the IC re-scores with Stage 1.2 evidence.
+- It does not validate customer pain via social media (Phase 3c surfaces competitive + regulatory recency only — see the Phase 3c framing).
 - It does not write to the `Owner` or `Deal Lead` fields (human assignment).
-- It does not fill `Decision`, `Stage Gate Recommendation`, `Evaluation Score`, or any scoring formula fields (they're auto-computed or downstream).
+- It does not fill `Decision`, `Decision Reasoning` (except in Killed-row fallbacks), or formula fields like `Evaluation Score` / `Evaluation Band` / `Gate * Pass` (auto-computed by Notion from the Q1–Q16 inputs).
 - It does not push to GitHub or trigger any deploy.
 
 ## What to do when stuck

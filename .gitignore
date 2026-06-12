@@ -1,0 +1,13 @@
+# API request/response artifacts from Perplexity / Grok / X test runs.
+# These are per-run scratch files — never commit them.
+*_body.json
+*_response.json
+x_test_response.json
+x_regulator.json
+x_competitive.json
+dr_*.json
+grok_*.json
+
+# OS noise
+Thumbs.db
+.DS_Store
